@@ -65,17 +65,22 @@
             border: 5px solid #1a73e8;
             margin-bottom: 15px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
         .student-name {
             font-size: 24px;
             font-weight: bold;
             color: #1a73e8;
             margin-bottom: 10px;
+            text-align: center;
         }
         .student-id {
             font-size: 16px;
             color: #666;
             margin-bottom: 15px;
+            text-align: center;
         }
         .verification {
             background: #fff9c4;
@@ -84,6 +89,7 @@
             font-size: 14px;
             color: #f57f17;
             margin-top: 15px;
+            text-align: center;
         }
         .buttons {
             display: flex;
@@ -145,6 +151,7 @@
             margin-bottom: 15px;
             font-size: 14px;
             color: #1565c0;
+            text-align: center;
         }
     </style>
 </head>
@@ -201,6 +208,7 @@
         let asistenciasHoy = 0;
 
         window.onload = function() {
+            console.log('🚀 Iniciando aplicación...');
             cargarContador();
             iniciarEscanner();
         };
@@ -222,6 +230,8 @@
         }
 
         function iniciarEscanner() {
+            console.log('📷 Iniciando escáner...');
+            
             if (html5QrcodeScanner) {
                 html5QrcodeScanner.clear().catch(err => {});
                 html5QrcodeScanner = null;
@@ -235,24 +245,33 @@
             html5QrcodeScanner = new Html5Qrcode("reader");
             const config = { 
                 fps: 10, 
-                qrbox: { width: 250, height: 250 }
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
             };
 
             html5QrcodeScanner.start(
                 { facingMode: "environment" }, 
                 config, 
-                onScanSuccess
+                onScanSuccess,
+                onScanFailure
             ).catch(err => {
+                console.error('❌ Error al iniciar cámara:', err);
                 document.getElementById('status').innerText = '❌ Error: ' + err;
                 document.getElementById('status').className = 'status error';
             });
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            if (estaProcesando) return;
+            if (estaProcesando) {
+                return;
+            }
             
+            console.log('✅ QR escaneado:', decodedText);
             estaProcesando = true;
-            html5QrcodeScanner.pause();
+            
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.pause();
+            }
             
             document.getElementById('status').innerHTML = '🔒 Procesando...';
             document.getElementById('status').className = 'status locked';
@@ -266,6 +285,8 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('📩 Respuesta:', data);
+                
                 if (data.status === "OK") {
                     asistenciasHoy++;
                     guardarContador();
@@ -290,13 +311,12 @@
                         block: 'center' 
                     });
                     
-                    // Reanudar cámara después de 5 segundos
                     setTimeout(function() {
                         if (html5QrcodeScanner) {
                             html5QrcodeScanner.resume().then(() => {
                                 console.log('✅ Cámara reanudada');
                             }).catch(err => {
-                                console.log('Error al reanudar, reiniciando...', err);
+                                console.log('Reiniciando escáner...', err);
                                 reiniciarEscanner();
                             });
                         }
@@ -313,12 +333,18 @@
                 }
             })
             .catch(error => {
+                console.error('❌ Error:', error);
                 document.getElementById('status').innerText = '❌ Error: ' + error;
                 document.getElementById('status').className = 'status error';
                 setTimeout(function() {
                     reiniciarEscanner();
                 }, 2000);
             });
+        }
+
+        function onScanFailure(error) {
+            // Los errores de escaneo son normales cuando no hay QR
+            // console.log('Escaneando...', error);
         }
 
         function reiniciarEscanner() {
