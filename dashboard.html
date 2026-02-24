@@ -233,10 +233,18 @@
         function cargarDatos() {
             fetch(GAS_API_URL, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ accion: 'obtenerDatosDashboard' })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Respuesta:', response);
+                return response.json();
+            })
             .then(data => {
+                console.log('Datos recibidos:', data);
+                
                 if (data.error) {
                     document.getElementById('loading').innerHTML = '<div class="error">❌ ' + data.error + '</div>';
                     return;
@@ -245,26 +253,34 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
                 
-                document.getElementById('fechaActual').innerText = data.fechaActual;
-                document.getElementById('totalEstudiantes').innerText = data.totalEstudiantes;
-                document.getElementById('asistenciasHoy').innerText = data.asistenciasHoy;
-                document.getElementById('asistenciasSemana').innerText = data.asistenciasSemana;
-                document.getElementById('totalAlertas').innerText = data.totalAlertas;
+                document.getElementById('fechaActual').innerText = data.fechaActual || 'Fecha no disponible';
+                document.getElementById('totalEstudiantes').innerText = data.totalEstudiantes || 0;
+                document.getElementById('asistenciasHoy').innerText = data.asistenciasHoy || 0;
+                document.getElementById('asistenciasSemana').innerText = data.asistenciasSemana || 0;
+                document.getElementById('totalAlertas').innerText = data.totalAlertas || 0;
                 
-                generarGraficoDias(data.diasSemana, data.asistenciasPorDia);
-                generarTablaTop(data.topEstudiantes);
+                if (data.diasSemana && data.asistenciasPorDia) {
+                    generarGraficoDias(data.diasSemana, data.asistenciasPorDia);
+                }
+                
+                if (data.topEstudiantes) {
+                    generarTablaTop(data.topEstudiantes);
+                }
             })
             .catch(error => {
-                document.getElementById('loading').innerHTML = '<div class="error">❌ Error al cargar datos: ' + error + '</div>';
+                console.error('Error:', error);
+                document.getElementById('loading').innerHTML = '<div class="error">❌ Error al cargar datos: ' + error.message + '</div>';
             });
         }
         
         function generarGraficoDias(dias, asistencias) {
             var maxAsistencias = Math.max.apply(null, asistencias);
+            if (maxAsistencias === 0) maxAsistencias = 1;
+            
             var html = '';
             
             for (var i = 0; i < dias.length; i++) {
-                var porcentaje = maxAsistencias > 0 ? (asistencias[i] / maxAsistencias * 100) : 0;
+                var porcentaje = (asistencias[i] / maxAsistencias * 100);
                 html += '<div class="bar">';
                 html += '<div class="bar-label">' + dias[i] + '</div>';
                 html += '<div class="bar-progress">';
@@ -279,7 +295,7 @@
         function generarTablaTop(topEstudiantes) {
             var html = '';
             
-            if (topEstudiantes.length === 0) {
+            if (!topEstudiantes || topEstudiantes.length === 0) {
                 html = '<tr><td colspan="3" style="text-align: center; color: #999;">No hay asistencias registradas</td></tr>';
             } else {
                 for (var i = 0; i < topEstudiantes.length; i++) {
