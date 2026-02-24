@@ -139,12 +139,12 @@
             font-size: 14px;
         }
         .user-info {
-            background: #fff3e0;
+            background: #e3f2fd;
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 15px;
             font-size: 14px;
-            color: #e65100;
+            color: #1565c0;
         }
     </style>
 </head>
@@ -157,7 +157,7 @@
         
         <div class="content">
             <div id="user-info" class="user-info">
-                👤 Cargando...
+                👤 Sistema de Asistencia - Labor Social
             </div>
             
             <div id="reader"></div>
@@ -200,35 +200,20 @@
         let html5QrcodeScanner;
         let estaProcesando = false;
         let asistenciasHoy = 0;
-        let usuarioActual = '';
 
         window.onload = function() {
-            verificarUsuario();
+            // Cargar contador desde localStorage si existe
+            const contadorGuardado = localStorage.getItem('asistenciasHoy_' + obtenerFechaHoy());
+            if (contadorGuardado) {
+                asistenciasHoy = parseInt(contadorGuardado);
+                document.getElementById('asistenciasHoy').innerText = asistenciasHoy;
+            }
+            iniciarEscanner();
         };
 
-        function verificarUsuario() {
-            fetch(GAS_API_URL, {
-                method: 'POST',
-                body: JSON.stringify({ accion: 'verificarAutorizacion' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'ok') {
-                    usuarioActual = data.email || 'Usuario';
-                    document.getElementById('user-info').innerText = '👤 ' + usuarioActual;
-                    iniciarEscanner();
-                } else {
-                    document.getElementById('user-info').innerHTML = '❌ No autorizado';
-                    document.getElementById('user-info').style.background = '#ffebee';
-                    document.getElementById('user-info').style.color = '#c62828';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('user-info').innerHTML = '⚠️ Error de conexión';
-                document.getElementById('user-info').style.background = '#ffebee';
-                document.getElementById('user-info').style.color = '#c62828';
-            });
+        function obtenerFechaHoy() {
+            const hoy = new Date();
+            return hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
         }
 
         function iniciarEscanner() {
@@ -265,11 +250,8 @@
             estaProcesando = true;
             html5QrcodeScanner.pause();
             
-            document.getElementById('status').innerHTML = '🔒 Escáner bloqueado - Espera 5 segundos...';
+            document.getElementById('status').innerHTML = '🔒 Escáner bloqueado - Procesando...';
             document.getElementById('status').className = 'status locked';
-            
-            document.getElementById('status').innerText = '⏳ Procesando...';
-            document.getElementById('status').className = 'status loading';
 
             fetch(GAS_API_URL, {
                 method: 'POST',
@@ -281,7 +263,9 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === "OK") {
+                    // Incrementar y guardar contador
                     asistenciasHoy++;
+                    localStorage.setItem('asistenciasHoy_' + obtenerFechaHoy(), asistenciasHoy);
                     document.getElementById('asistenciasHoy').innerText = asistenciasHoy;
                     
                     document.getElementById('status').innerText = '✅ ' + data.nombre + ' - Asistencia registrada';
@@ -298,6 +282,12 @@
                     }
                     
                     document.getElementById('studentInfo').style.display = 'block';
+                    
+                    // AUTO-SCROLL a la información del estudiante
+                    document.getElementById('studentInfo').scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
                     
                     setTimeout(function() {
                         reiniciarEscanner();
