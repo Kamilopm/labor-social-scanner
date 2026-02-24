@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner Labor Social</title>
+    <!-- Librería para QR -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #1a73e8; margin-bottom: 10px; }
+        #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        .status { padding: 15px; border-radius: 8px; margin-top: 10px; font-weight: bold; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
+        .loading { background: #e3f2fd; color: #1565c0; }
+        button { background: #1a73e8; color: white; border: none; padding: 12px 25px; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 5px; }
+        button:disabled { background: #ccc; }
+        .student-info { display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .student-img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #1a73e8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎓 Labor Social</h1>
+    <p>Liceo Alejandro de Humboldt</p>
+    
+    <div id="reader"></div>
+    
+    <div id="status" class="status loading">📷 Iniciando cámara...</div>
+    
+    <div id="studentInfo" class="student-info">
+        <img id="studentImg" class="student-img" src="" alt="Foto">
+        <h2 id="studentName">Nombre</h2>
+        <p>ID: <span id="studentId">000</span></p>
+        <p>Docente: <span id="teacherName">-</span></p>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="iniciarEscaneo()">🔄 Reiniciar Escáner</button>
+        <a href="dashboard.html" target="_blank"><button style="background:#2e7d32">📊 Ver Dashboard</button></a>
+    </div>
+</div>
+
+<script>
+    // ⚠️ PEGA AQUÍ TU URL DE APLICACIÓN WEB DE GAS
+    const GAS_API_URL = "https://script.google.com/macros/s/TU_ID_DE_IMPLEMENTACION/exec"; 
+
+    let html5QrcodeScanner;
+    let isProcessing = false;
+
+    function iniciarEscaneo() {
+        document.getElementById('studentInfo').style.display = 'none';
+        document.getElementById('status').className = 'status loading';
+        document.getElementById('status').innerText = '📷 Apuntando...';
+        isProcessing = false;
+
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear();
+        }
+
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+        .catch(err => {
+            document.getElementById('status').innerText = '❌ Error cámara: ' + err;
+            document.getElementById('status').className = 'status error';
+        });
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        if (isProcessing) return;
+        isProcessing = true;
+        
+        // Pausar escaneo temporalmente
+        html5QrcodeScanner.pause();
+        document.getElementById('status').innerText = '⏳ Procesando...';
+        
+        fetch(GAS_API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ accion: 'guardarAsistencia', idEstudiante: decodedText })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'OK') {
+                document.getElementById('status').innerText = '✅ ' + data.mensaje;
+                document.getElementById('status').className = 'status success';
+                mostrarEstudiante(data);
+                
+                // Reanudar después de 3 segundos
+                setTimeout(() => {
+                    html5QrcodeScanner.resume();
+                    isProcessing = false;
+                    document.getElementById('studentInfo').style.display = 'none';
+                    document.getElementById('status').innerText = '📷 Apuntando...';
+                    document.getElementById('status').className = 'status loading';
+                }, 3000);
+            } else {
+                throw new Error(data.mensaje);
+            }
+        })
+        .catch(error => {
+            document.getElementById('status').innerText = '❌ Error: ' + error.message;
+            document.getElementById('status').className = 'status error';
+            setTimeout(() => {
+                html5QrcodeScanner.resume();
+                isProcessing = false;
+            }, 2000);
+        });
+    }
+
+    function mostrarEstudiante(data) {
+        document.getElementById('studentInfo').style.display = 'block';
+        document.getElementById('studentName').innerText = data.nombre;
+        document.getElementById('studentId').innerText = data.idEstudiante || 'N/A'; // El ID viene del QR escaneado
+        document.getElementById('teacherName').innerText = data.docente;
+        
+        const img = document.getElementById('studentImg');
+        if (data.foto) {
+            img.src = data.foto;
+            img.style.display = 'block';
+        } else {
+            img.style.display = 'none';
+        }
+    }
+
+    // Iniciar al cargar
+    window.onload = iniciarEscaneo;
+</script>
+
+</body>
+</html>
