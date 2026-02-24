@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 Escáner Labor Social - Liceo Alejandro de Humboldt</title>
+    <title>📱 Escáner Labor Social</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -152,18 +152,19 @@
     <div class="container">
         <div class="header">
             <h1>🎓 Liceo Alejandro de Humboldt</h1>
-            <p>Sistema de Labor Social - Escáner QR</p>
+            <p>Labor Social</p>
         </div>
         
         <div class="content">
             <div id="user-info" class="user-info">
-                👤 Cargando usuario...
+                👤 Cargando...
             </div>
             
             <div id="reader"></div>
             
             <div id="status" class="status loading">
-                📷 Apuntando al código QR del estudiante...
+                📷 Apunta al código QR del estudiante<br>
+                <small>El escáner se bloquea 5 segundos después de cada lectura</small>
             </div>
             
             <div id="studentInfo" class="student-info">
@@ -182,8 +183,8 @@
             </div>
             
             <div class="buttons" style="margin-top: 20px;">
-                <button onclick="reiniciarEscanner()" class="btn btn-primary">🔄 Reiniciar</button>
                 <a href="dashboard.html" class="btn btn-secondary">📊 Dashboard</a>
+                <button onclick="reiniciarEscanner()" class="btn btn-primary">🔄 Reiniciar</button>
             </div>
         </div>
         
@@ -201,7 +202,6 @@
         let asistenciasHoy = 0;
         let usuarioActual = '';
 
-        // Verificar autorización al cargar
         window.onload = function() {
             verificarUsuario();
         };
@@ -215,10 +215,10 @@
             .then(data => {
                 if (data.status === 'ok') {
                     usuarioActual = data.email || 'Usuario';
-                    document.getElementById('user-info').innerText = '👤 Docente: ' + usuarioActual;
+                    document.getElementById('user-info').innerText = '👤 ' + usuarioActual;
                     iniciarEscanner();
                 } else {
-                    document.getElementById('user-info').innerHTML = '❌ No autorizado - Contacta al coordinador';
+                    document.getElementById('user-info').innerHTML = '❌ No autorizado';
                     document.getElementById('user-info').style.background = '#ffebee';
                     document.getElementById('user-info').style.color = '#c62828';
                 }
@@ -233,7 +233,7 @@
         function iniciarEscanner() {
             document.getElementById('studentInfo').style.display = 'none';
             document.getElementById('status').className = 'status loading';
-            document.getElementById('status').innerText = '📷 Apuntando al código QR del estudiante...';
+            document.getElementById('status').innerHTML = '📷 Apunta al código QR del estudiante<br><small>El escáner se bloquea 5 segundos después de cada lectura</small>';
             estaProcesando = false;
 
             if (html5QrcodeScanner) {
@@ -263,6 +263,9 @@
             
             estaProcesando = true;
             html5QrcodeScanner.pause();
+            
+            document.getElementById('status').innerHTML = '🔒 Escáner bloqueado - Espera 5 segundos...';
+            document.getElementById('status').className = 'status locked';
             
             document.getElementById('status').innerText = '⏳ Procesando...';
             document.getElementById('status').className = 'status loading';
