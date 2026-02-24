@@ -197,35 +197,52 @@
         // ⚠️ REEMPLAZA CON TU URL DE APPS SCRIPT
         const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxs_eiAc9DtfSdRsWR8iI2V8eiJoaIT8QUzbliBkaGW28qQ5DQQypggm4JBQo8IcQe_/exec';
         
-        let html5QrcodeScanner;
+        let html5QrcodeScanner = null;
         let estaProcesando = false;
         let asistenciasHoy = 0;
 
         window.onload = function() {
-            // Cargar contador desde localStorage si existe
-            const contadorGuardado = localStorage.getItem('asistenciasHoy_' + obtenerFechaHoy());
-            if (contadorGuardado) {
-                asistenciasHoy = parseInt(contadorGuardado);
-                document.getElementById('asistenciasHoy').innerText = asistenciasHoy;
-            }
+            console.log(' Iniciando aplicación...');
+            cargarContador();
             iniciarEscanner();
         };
 
-        function obtenerFechaHoy() {
+        function cargarContador() {
             const hoy = new Date();
-            return hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
+            const fechaHoy = hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
+            const contadorGuardado = localStorage.getItem('asistenciasHoy_' + fechaHoy);
+            if (contadorGuardado) {
+                asistenciasHoy = parseInt(contadorGuardado);
+                document.getElementById('asistenciasHoy').innerText = asistenciasHoy;
+                console.log('📊 Contador cargado:', asistenciasHoy);
+            }
+        }
+
+        function guardarContador() {
+            const hoy = new Date();
+            const fechaHoy = hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
+            localStorage.setItem('asistenciasHoy_' + fechaHoy, asistenciasHoy);
+            console.log('💾 Contador guardado:', asistenciasHoy);
         }
 
         function iniciarEscanner() {
+            console.log('📷 Iniciando escáner...');
+            
+            // Limpiar scanner anterior si existe
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().catch(err => {
+                    console.log('Info: Scanner ya estaba limpio');
+                });
+                html5QrcodeScanner = null;
+            }
+            
+            // Resetear UI
             document.getElementById('studentInfo').style.display = 'none';
             document.getElementById('status').className = 'status loading';
             document.getElementById('status').innerHTML = '📷 Apunta al código QR del estudiante<br><small>El escáner se bloquea 5 segundos después de cada lectura</small>';
             estaProcesando = false;
 
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.clear();
-            }
-
+            // Crear nuevo scanner
             html5QrcodeScanner = new Html5Qrcode("reader");
             const config = { 
                 fps: 10, 
@@ -237,20 +254,31 @@
                 { facingMode: "environment" }, 
                 config, 
                 onScanSuccess
-            ).catch(err => {
+            ).then(() => {
+                console.log('✅ Escáner iniciado correctamente');
+            }).catch(err => {
+                console.error('❌ Error al iniciar cámara:', err);
                 document.getElementById('status').innerText = '❌ Error al iniciar cámara: ' + err;
                 document.getElementById('status').className = 'status error';
-                console.error('Error cámara:', err);
             });
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            if (estaProcesando) return;
+            if (estaProcesando) {
+                console.log('⏸️ Escáner ya está procesando...');
+                return;
+            }
             
+            console.log('✅ QR escaneado:', decodedText);
             estaProcesando = true;
-            html5QrcodeScanner.pause();
             
-            document.getElementById('status').innerHTML = '🔒 Escáner bloqueado - Procesando...';
+            // Pausar scanner
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.pause();
+                console.log('⏸️ Scanner pausado');
+            }
+            
+            document.getElementById('status').innerHTML = '🔒 Procesando...';
             document.getElementById('status').className = 'status locked';
 
             fetch(GAS_API_URL, {
@@ -262,10 +290,12 @@
             })
             .then(response => response.json())
             .then(data => {
+                console.log('📩 Respuesta del servidor:', data);
+                
                 if (data.status === "OK") {
                     // Incrementar y guardar contador
                     asistenciasHoy++;
-                    localStorage.setItem('asistenciasHoy_' + obtenerFechaHoy(), asistenciasHoy);
+                    guardarContador();
                     document.getElementById('asistenciasHoy').innerText = asistenciasHoy;
                     
                     document.getElementById('status').innerText = '✅ ' + data.nombre + ' - Asistencia registrada';
@@ -289,28 +319,35 @@
                         block: 'center' 
                     });
                     
+                    console.log('⏱️ Reanudando en 5 segundos...');
+                    // Reanudar cámara después de 5 segundos
                     setTimeout(function() {
+                        console.log('🔄 Ejecutando reiniciarEscanner()');
                         reiniciarEscanner();
                     }, 5000);
                 } else {
                     document.getElementById('status').innerText = '❌ Error: ' + data.mensaje;
                     document.getElementById('status').className = 'status error';
+                    console.log('⏱️ Reanudando en 2 segundos (error)...');
                     setTimeout(function() {
                         reiniciarEscanner();
-                    }, 3000);
+                    }, 2000);
                 }
             })
             .catch(error => {
+                console.error('❌ Error de conexión:', error);
                 document.getElementById('status').innerText = '❌ Error de conexión: ' + error;
                 document.getElementById('status').className = 'status error';
                 setTimeout(function() {
                     reiniciarEscanner();
-                }, 3000);
+                }, 2000);
             });
         }
 
         function reiniciarEscanner() {
+            console.log('🔄 Reiniciando escáner...');
             document.getElementById('studentInfo').style.display = 'none';
+            estaProcesando = false;
             iniciarEscanner();
         }
     </script>
